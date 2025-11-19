@@ -1,0 +1,48 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 820 210" role="img" aria-label="cronyomiのアーキテクチャ図">
+  <title>cronyomiのアーキテクチャ</title>
+  <style>
+    .box { fill: none; stroke: #8b97a1; stroke-width: 1.5; }
+    .accent-box { fill: none; stroke: #2f7d6b; stroke-width: 1.5; }
+    .label { font: 600 14px 'Hiragino Sans', 'Noto Sans JP', sans-serif; fill: #67737f; }
+    .small { font: 400 11.5px 'Hiragino Sans', 'Noto Sans JP', sans-serif; fill: #67737f; }
+    .accent-label { font: 700 14px 'Hiragino Sans', 'Noto Sans JP', sans-serif; fill: #2f7d6b; }
+    .arrow { stroke: #8b97a1; stroke-width: 1.5; fill: none; marker-end: url(#head); }
+  </style>
+  <defs>
+    <marker id="head" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto">
+      <path d="M0 0L8 4L0 8z" fill="#8b97a1"/>
+    </marker>
+  </defs>
+
+  <rect x="20" y="64" width="150" height="80" rx="8" class="box"/>
+  <text x="40" y="94" class="label">入力</text>
+  <text x="40" y="116" class="small">cron式の文字列</text>
+  <text x="40" y="132" class="small">プリセット</text>
+
+  <rect x="240" y="54" width="170" height="100" rx="8" class="accent-box"/>
+  <text x="260" y="84" class="accent-label">parseCron</text>
+  <text x="260" y="106" class="small">5フィールドを展開</text>
+  <text x="260" y="122" class="small">名前/範囲/ステップ</text>
+  <text x="260" y="138" class="small">エラーはフィールド名付き</text>
+
+  <rect x="470" y="20" width="150" height="76" rx="8" class="box"/>
+  <text x="490" y="48" class="label">describe</text>
+  <text x="490" y="70" class="small">日本語の説明</text>
+  <text x="490" y="86" class="small">平日・土日など</text>
+
+  <rect x="470" y="116" width="150" height="76" rx="8" class="box"/>
+  <text x="490" y="144" class="label">nextRuns</text>
+  <text x="490" y="166" class="small">次の実行時刻</text>
+  <text x="490" y="182" class="small">日→時→分で走査</text>
+
+  <rect x="680" y="64" width="120" height="80" rx="8" class="box"/>
+  <text x="700" y="94" class="label">UI</text>
+  <text x="700" y="116" class="small">説明・内訳</text>
+  <text x="700" y="132" class="small">次回5件</text>
+
+  <path class="arrow" d="M170 104 H232"/>
+  <path class="arrow" d="M410 88 C440 80 445 64 462 60"/>
+  <path class="arrow" d="M410 120 C440 130 445 148 462 152"/>
+  <path class="arrow" d="M620 58 C650 64 655 78 678 86"/>
+  <path class="arrow" d="M620 154 C650 146 655 130 678 122"/>
+</svg>
