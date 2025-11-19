@@ -57,6 +57,41 @@ describe('parseCron 名前と別表記', () => {
   });
 });
 
+describe('parseCron 別名マクロ', () => {
+  it('@daily は毎日0時に展開する', () => {
+    const spec = parseCron('@daily');
+    expect(spec.minute.values).toEqual([0]);
+    expect(spec.hour.values).toEqual([0]);
+    expect(spec.dom.isStar).toBe(true);
+  });
+
+  it('@hourly は毎時0分', () => {
+    const spec = parseCron('@hourly');
+    expect(spec.minute.values).toEqual([0]);
+    expect(spec.hour.isStar).toBe(true);
+  });
+
+  it('@weekly は日曜0時', () => {
+    expect(parseCron('@weekly').dow.values).toEqual([0]);
+  });
+
+  it('@yearly と @annually は同じ', () => {
+    expect(parseCron('@yearly').raw).toBe(parseCron('@annually').raw);
+  });
+
+  it('大文字小文字を区別しない', () => {
+    expect(parseCron('@DAILY').hour.values).toEqual([0]);
+  });
+
+  it('@reboot は実行時刻を持たないとして拒否する', () => {
+    expect(() => parseCron('@reboot')).toThrow(CronParseError);
+  });
+
+  it('未知の別名は拒否する', () => {
+    expect(() => parseCron('@frequently')).toThrow(CronParseError);
+  });
+});
+
 describe('parseCron 異常系', () => {
   it('フィールド数が違うと拒否する', () => {
     expect(() => parseCron('* * * *')).toThrow(CronParseError);
