@@ -54,18 +54,43 @@ const FIELD_DEFS: FieldDef[] = [
   { key: 'dow', label: '曜日', min: 0, max: 7, names: DOW_NAMES, normalize: (v) => (v === 7 ? 0 : v) },
 ];
 
+// vixie cron互換の別名マクロ。@reboot は時刻が定まらないため別扱いにする。
+const NICKNAMES: Record<string, string> = {
+  '@yearly': '0 0 1 1 *',
+  '@annually': '0 0 1 1 *',
+  '@monthly': '0 0 1 * *',
+  '@weekly': '0 0 * * 0',
+  '@daily': '0 0 * * *',
+  '@midnight': '0 0 * * *',
+  '@hourly': '0 * * * *',
+};
+
 export function parseCron(expression: string): CronSpec {
   const trimmed = expression.trim();
   if (!trimmed) {
     throw new CronParseError('式が空です');
   }
-  const tokens = trimmed.split(/\s+/);
+
+  let source = trimmed;
+  if (source.startsWith('@')) {
+    const key = source.toLowerCase();
+    if (key === '@reboot') {
+      throw new CronParseError('@reboot は起動時に動くため、実行時刻を計算できません');
+    }
+    const expanded = NICKNAMES[key];
+    if (!expanded) {
+      throw new CronParseError(`'${trimmed}' は対応していない別名です`);
+    }
+    source = expanded;
+  }
+
+  const tokens = source.split(/\s+/);
   if (tokens.length !== 5) {
     throw new CronParseError(
       `フィールドは5つ必要です(分 時 日 月 曜日)。今は${tokens.length}つあります`,
     );
   }
-  const spec = { raw: trimmed } as CronSpec;
+  const spec = { raw: source } as CronSpec;
   FIELD_DEFS.forEach((def, index) => {
     spec[def.key] = parseField(tokens[index]!, def);
   });
