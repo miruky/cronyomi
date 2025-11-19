@@ -129,6 +129,18 @@ function summarizeField(spec: CronSpec, key: keyof Omit<CronSpec, 'raw'>): strin
   return `${field.values.slice(0, 8).join(', ')} ほか${field.values.length - 8}件`;
 }
 
+// 結果が実際に変わったときだけアニメーションを再生する。
+// 構築前に必ずクラスを外し(挿入時の自動再生を防ぐ)、変化時のみreflowを挟んで付け直す。
+let lastReading = '';
+let lastRunsSig = '';
+function setUpdated(el: HTMLElement, changed: boolean): void {
+  el.classList.remove('is-updated');
+  if (changed) {
+    void el.offsetWidth;
+    el.classList.add('is-updated');
+  }
+}
+
 function render(): void {
   const expression = exprInput.value;
   let spec: CronSpec;
@@ -141,8 +153,13 @@ function render(): void {
     readingEl.classList.add('muted');
     descEl.textContent = '解釈できない式です';
     document.title = 'cronyomi | cron式を日本語で読む';
+    descEl.classList.remove('is-updated');
+    runsEl.classList.remove('is-updated');
     fieldsBody.innerHTML = '';
     runsEl.innerHTML = '';
+    // 直すと再びアニメーションするよう、表示中の内容を空として記録する
+    lastReading = '';
+    lastRunsSig = '';
     return;
   }
 
@@ -151,6 +168,8 @@ function render(): void {
   const reading = describe(spec);
   descEl.textContent = reading;
   document.title = `${reading} | cronyomi`;
+  setUpdated(descEl, reading !== lastReading);
+  lastReading = reading;
 
   fieldsBody.innerHTML = '';
   for (const [key, label, range] of FIELD_LABELS) {
@@ -169,25 +188,31 @@ function render(): void {
 
   const now = new Date();
   const runs = nextRuns(spec, now, 5);
+  // 構築前にクラスを外し、li挿入時に毎回アニメーションしてしまうのを防ぐ
+  runsEl.classList.remove('is-updated');
   runsEl.innerHTML = '';
   if (runs.length === 0) {
     const li = document.createElement('li');
     li.className = 'run-empty';
     li.textContent = '直近5年以内に該当する時刻はありません';
     runsEl.appendChild(li);
-    return;
+  } else {
+    for (const run of runs) {
+      const li = document.createElement('li');
+      const abs = document.createElement('span');
+      abs.className = 'run-abs';
+      abs.textContent = formatDateTime(run);
+      const rel = document.createElement('span');
+      rel.className = 'run-rel';
+      rel.textContent = formatRelative(run, now);
+      li.append(abs, rel);
+      runsEl.appendChild(li);
+    }
   }
-  for (const run of runs) {
-    const li = document.createElement('li');
-    const abs = document.createElement('span');
-    abs.className = 'run-abs';
-    abs.textContent = formatDateTime(run);
-    const rel = document.createElement('span');
-    rel.className = 'run-rel';
-    rel.textContent = formatRelative(run, now);
-    li.append(abs, rel);
-    runsEl.appendChild(li);
-  }
+
+  const runsSig = runs.length ? runs.map((r) => r.getTime()).join(',') : 'none';
+  setUpdated(runsEl, runsSig !== lastRunsSig);
+  lastRunsSig = runsSig;
 }
 
 exprInput.addEventListener('input', render);
