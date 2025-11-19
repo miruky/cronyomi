@@ -4,8 +4,17 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="description" content="cron式を日本語で読み解き、次に実行される時刻をプレビューする" />
+    <meta name="theme-color" content="#f4f3ee" media="(prefers-color-scheme: light)" />
+    <meta name="theme-color" content="#14171a" media="(prefers-color-scheme: dark)" />
     <link rel="icon" type="image/svg+xml" href="logo.svg" />
     <title>cronyomi | cron式を日本語で読む</title>
+    <script>
+      // 保存済みのテーマを描画前に当て、初期表示のちらつきを防ぐ
+      try {
+        var t = localStorage.getItem('cronyomi.theme');
+        if (t === 'light' || t === 'dark') document.documentElement.setAttribute('data-theme', t);
+      } catch (e) {}
+    </script>
   </head>
   <body>
     <div id="app"></div>
