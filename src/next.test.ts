@@ -47,4 +47,15 @@ describe('nextRuns', () => {
   it('要求した件数だけ返す', () => {
     expect(nextRuns(parseCron('*/30 * * * *'), BASE, 5)).toHaveLength(5);
   });
+
+  it('存在しない日付(2月30日)は空を返す', () => {
+    expect(nextRuns(parseCron('0 0 30 2 *'), BASE, 5)).toEqual([]);
+  });
+
+  it('日と曜日のORは曜日側でも拾う', () => {
+    // 毎月29日 または 月曜の 0:00。基準(2026/6/12金)の次は最初の月曜6/15
+    const runs = nextRuns(parseCron('0 0 29 * 1'), BASE, 2);
+    expect(runs[0]).toEqual(new Date(2026, 5, 15, 0, 0, 0));
+    expect(runs[1]).toEqual(new Date(2026, 5, 22, 0, 0, 0));
+  });
 });
