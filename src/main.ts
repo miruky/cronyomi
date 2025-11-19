@@ -140,6 +140,7 @@ function render(): void {
     errorEl.hidden = false;
     readingEl.classList.add('muted');
     descEl.textContent = '解釈できない式です';
+    document.title = 'cronyomi | cron式を日本語で読む';
     fieldsBody.innerHTML = '';
     runsEl.innerHTML = '';
     return;
@@ -147,7 +148,9 @@ function render(): void {
 
   errorEl.hidden = true;
   readingEl.classList.remove('muted');
-  descEl.textContent = describe(spec);
+  const reading = describe(spec);
+  descEl.textContent = reading;
+  document.title = `${reading} | cronyomi`;
 
   fieldsBody.innerHTML = '';
   for (const [key, label, range] of FIELD_LABELS) {
