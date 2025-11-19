@@ -4,6 +4,7 @@ import { describe } from './describe';
 import { nextRuns } from './next';
 import { formatDateTime, formatRelative } from './format';
 import { PRESETS } from './presets';
+import { applyTheme, loadTheme, nextTheme, THEME_LABEL, type ThemeMode } from './theme';
 
 const FIELD_LABELS: Array<[keyof Omit<CronSpec, 'raw'>, string, string]> = [
   ['minute', '分', '0-59'],
@@ -13,59 +14,100 @@ const FIELD_LABELS: Array<[keyof Omit<CronSpec, 'raw'>, string, string]> = [
   ['dow', '曜日', '0-7'],
 ];
 
-const CLOCK_ICON = `
-<svg viewBox="0 0 24 24" class="icon" aria-hidden="true">
-  <circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="1.6"/>
-  <path d="M12 7v5l3.5 2" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
+const CLOCK_MARK = `
+<svg viewBox="0 0 24 24" aria-hidden="true">
+  <circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="1.7"/>
+  <path d="M12 7v5l3.5 2" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/>
 </svg>`;
+
+const THEME_ICON: Record<ThemeMode, string> = {
+  light: `<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round">
+    <circle cx="12" cy="12" r="4.2"/>
+    <path d="M12 3v2.4M12 18.6V21M4.5 4.5l1.7 1.7M17.8 17.8l1.7 1.7M3 12h2.4M18.6 12H21M4.5 19.5l1.7-1.7M17.8 6.2l1.7-1.7"/>
+  </svg>`,
+  dark: `<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M20 14.2A7.5 7.5 0 0 1 9.8 4 7.5 7.5 0 1 0 20 14.2z"/>
+  </svg>`,
+  auto: `<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.7">
+    <circle cx="12" cy="12" r="8.4"/>
+    <path d="M12 3.6a8.4 8.4 0 0 1 0 16.8z" fill="currentColor" stroke="none"/>
+  </svg>`,
+};
 
 const app = document.getElementById('app');
 if (!app) throw new Error('#app が見つからない');
 
 app.innerHTML = `
-  <main class="wrap">
-    <header class="head">
-      <h1>cronyomi</h1>
-      <p class="sub">cron式を日本語で読み解き、次に動く時刻を確かめる</p>
-    </header>
+  <a class="skip-link" href="#main">本文へ移動</a>
+  <header class="topbar">
+    <div class="topbar-inner">
+      <a class="brand" href="./" aria-label="cronyomi ホーム">
+        <span class="brand-mark">${CLOCK_MARK}</span>
+        <span class="brand-name">cronyomi</span>
+      </a>
+      <button id="theme" class="theme-toggle" type="button"></button>
+    </div>
+  </header>
 
-    <section class="editor">
-      <label class="field-input">
-        <span class="field-input-label">cron式</span>
-        <input id="expr" type="text" spellcheck="false" autocomplete="off"
-          value="30 8 * * 1-5" aria-label="cron式" />
-      </label>
+  <main id="main" class="shell">
+    <p class="kicker">cron expression reader</p>
+    <p class="lede">cron式を入力すると、その意味を日本語で読み解き、フィールドの内訳と次に実行される時刻を表示します。</p>
+
+    <div class="field">
+      <label class="field-label" for="expr">cron 式</label>
+      <input id="expr" type="text" spellcheck="false" autocomplete="off"
+        value="30 8 * * 1-5" placeholder="* * * * *" aria-label="cron式" />
       <div class="presets" id="presets" aria-label="よく使う設定"></div>
-    </section>
+      <p id="error" class="error" role="alert" hidden></p>
+    </div>
 
-    <p id="error" class="error" role="alert" hidden></p>
-
-    <section id="reading" class="reading">
-      <span class="reading-icon">${CLOCK_ICON}</span>
+    <section id="reading" class="reading" aria-live="polite">
+      <p class="reading-kicker">この式の意味</p>
       <p id="description" class="description"></p>
     </section>
 
-    <section class="grid">
-      <div class="card">
-        <h2>フィールド</h2>
-        <table class="fields" id="fields"><tbody></tbody></table>
-      </div>
-      <div class="card">
-        <h2>次に実行される時刻</h2>
+    <div class="panels">
+      <section class="panel" aria-labelledby="fields-title">
+        <h2 id="fields-title" class="panel-title">フィールド</h2>
+        <table class="fields"><tbody id="fields"></tbody></table>
+      </section>
+      <section class="panel" aria-labelledby="runs-title">
+        <h2 id="runs-title" class="panel-title">次に実行される時刻</h2>
         <ol class="runs" id="runs"></ol>
-      </div>
-    </section>
+      </section>
+    </div>
   </main>
+
+  <footer class="site-footer">
+    <span>ブラウザ内で完結。外部APIにもサーバーにも送信しません。</span>
+    <a href="https://github.com/miruky/cronyomi" rel="noreferrer">ソースコード</a>
+  </footer>
 `;
 
 const exprInput = app.querySelector<HTMLInputElement>('#expr')!;
 const errorEl = app.querySelector<HTMLParagraphElement>('#error')!;
 const readingEl = app.querySelector<HTMLElement>('#reading')!;
 const descEl = app.querySelector<HTMLParagraphElement>('#description')!;
-const fieldsBody = app.querySelector<HTMLTableSectionElement>('#fields tbody')!;
+const fieldsBody = app.querySelector<HTMLTableSectionElement>('#fields')!;
 const runsEl = app.querySelector<HTMLOListElement>('#runs')!;
 const presetsEl = app.querySelector<HTMLDivElement>('#presets')!;
+const themeBtn = app.querySelector<HTMLButtonElement>('#theme')!;
 
+// ── テーマ切替(自動 → ライト → ダークの循環)──
+let theme = loadTheme();
+function renderTheme(): void {
+  applyTheme(theme);
+  const label = THEME_LABEL[theme];
+  themeBtn.innerHTML = `${THEME_ICON[theme]}<span>${label}</span>`;
+  themeBtn.setAttribute('aria-label', `配色: ${label}(クリックで切り替え)`);
+}
+themeBtn.addEventListener('click', () => {
+  theme = nextTheme(theme);
+  renderTheme();
+});
+renderTheme();
+
+// ── プリセット ──
 for (const preset of PRESETS) {
   const chip = document.createElement('button');
   chip.type = 'button';
@@ -97,7 +139,7 @@ function render(): void {
     errorEl.textContent = message;
     errorEl.hidden = false;
     readingEl.classList.add('muted');
-    descEl.textContent = '—';
+    descEl.textContent = '解釈できない式です';
     fieldsBody.innerHTML = '';
     runsEl.innerHTML = '';
     return;
