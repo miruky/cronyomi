@@ -68,9 +68,10 @@ app.innerHTML = `
         </button>
       </div>
       <input id="expr" type="text" spellcheck="false" autocomplete="off"
-        value="30 8 * * 1-5" placeholder="* * * * *" aria-label="cron式" />
+        value="30 8 * * 1-5" placeholder="* * * * *" />
       <div class="presets" id="presets" aria-label="よく使う設定"></div>
       <p id="error" class="error" role="alert" hidden></p>
+      <span id="copy-status" class="sr-only" role="status" aria-live="polite"></span>
     </div>
 
     <section id="reading" class="reading" aria-live="polite">
@@ -106,6 +107,7 @@ const presetsEl = app.querySelector<HTMLDivElement>('#presets')!;
 const themeBtn = app.querySelector<HTMLButtonElement>('#theme')!;
 const copyBtn = app.querySelector<HTMLButtonElement>('#copy')!;
 const copyLabel = app.querySelector<HTMLSpanElement>('#copy-label')!;
+const copyStatus = app.querySelector<HTMLSpanElement>('#copy-status')!;
 
 // 入力の余分な空白をならし、プリセット一致判定や共有に使う正規形を得る
 function normalize(expression: string): string {
@@ -146,16 +148,19 @@ for (const preset of PRESETS) {
 // ── コピー(クリップボードへ式を写す)──
 let copyResetTimer: number | undefined;
 copyBtn.addEventListener('click', async () => {
+  let message = 'コピーしました';
   try {
     await navigator.clipboard.writeText(exprInput.value);
-    copyLabel.textContent = 'コピーしました';
   } catch {
-    copyLabel.textContent = 'コピーできません';
+    message = 'コピーできません';
   }
+  copyLabel.textContent = message;
+  copyStatus.textContent = message;
   copyBtn.classList.add('done');
   window.clearTimeout(copyResetTimer);
   copyResetTimer = window.setTimeout(() => {
     copyLabel.textContent = 'コピー';
+    copyStatus.textContent = '';
     copyBtn.classList.remove('done');
   }, 1600);
 });
