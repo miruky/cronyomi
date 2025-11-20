@@ -355,6 +355,96 @@ body {
   color: var(--ink-faint);
 }
 
+/* ── 実行パターン(指紋)── */
+
+.pattern {
+  margin-top: 56px;
+}
+
+.fingerprint {
+  margin-top: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+}
+
+.track {
+  display: grid;
+  grid-template-columns: 3.5rem 1fr;
+  align-items: center;
+  gap: 16px;
+}
+
+.track-label {
+  font-size: 13px;
+  color: var(--ink-soft);
+  letter-spacing: 0.04em;
+}
+
+.cells {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.cell {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 26px;
+  height: 26px;
+  padding: 0 4px;
+  font-family: var(--mono);
+  font-size: 11.5px;
+  font-variant-numeric: tabular-nums;
+  color: var(--ink-faint);
+  border: 1px solid var(--rule);
+  border-radius: 6px;
+  transition:
+    color 0.18s var(--ease),
+    background-color 0.18s var(--ease),
+    border-color 0.18s var(--ease);
+}
+
+/* 時の帯は24個と多いので一回り小さくして横一列に収める */
+.track-hour .cell {
+  min-width: 22px;
+  height: 24px;
+  font-size: 11px;
+}
+
+.cell.active {
+  color: #fff;
+  background: var(--accent);
+  border-color: var(--accent);
+}
+
+:root[data-theme='dark'] .cell.active {
+  color: #11201c;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) .cell.active {
+    color: #11201c;
+  }
+}
+
+/* スケジュールが変わったとき、セルを左から順に立ち上げる */
+.fingerprint.is-updated .cell.active {
+  animation: cell-pop 0.32s var(--ease) both;
+}
+
+@keyframes cell-pop {
+  from {
+    opacity: 0.3;
+    transform: scale(0.82);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
 /* ── 内訳パネル ── */
 
 .panels {
