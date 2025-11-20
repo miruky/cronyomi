@@ -5,6 +5,7 @@ import { nextRuns } from './next';
 import { formatDateTime, formatRelative } from './format';
 import { PRESETS } from './presets';
 import { applyTheme, loadTheme, nextTheme, THEME_LABEL, type ThemeMode } from './theme';
+import { readSharedExpression, sharedExpressionQuery } from './share';
 
 const FIELD_LABELS: Array<[keyof Omit<CronSpec, 'raw'>, string, string]> = [
   ['minute', '分', '0-59'],
@@ -18,6 +19,12 @@ const CLOCK_MARK = `
 <svg viewBox="0 0 24 24" aria-hidden="true">
   <circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="1.7"/>
   <path d="M12 7v5l3.5 2" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>`;
+
+const COPY_ICON = `
+<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round">
+  <rect x="9" y="9" width="11" height="11" rx="2"/>
+  <path d="M5 15V5a2 2 0 0 1 2-2h8" stroke-linecap="round"/>
 </svg>`;
 
 const THEME_ICON: Record<ThemeMode, string> = {
@@ -54,7 +61,12 @@ app.innerHTML = `
     <p class="lede">cron式を入力すると、その意味を日本語で読み解き、フィールドの内訳と次に実行される時刻を表示します。</p>
 
     <div class="field">
-      <label class="field-label" for="expr">cron 式</label>
+      <div class="field-head">
+        <label class="field-label" for="expr">cron 式</label>
+        <button id="copy" class="copy-btn" type="button" aria-label="cron式をコピー">
+          ${COPY_ICON}<span id="copy-label">コピー</span>
+        </button>
+      </div>
       <input id="expr" type="text" spellcheck="false" autocomplete="off"
         value="30 8 * * 1-5" placeholder="* * * * *" aria-label="cron式" />
       <div class="presets" id="presets" aria-label="よく使う設定"></div>
@@ -92,6 +104,13 @@ const fieldsBody = app.querySelector<HTMLTableSectionElement>('#fields')!;
 const runsEl = app.querySelector<HTMLOListElement>('#runs')!;
 const presetsEl = app.querySelector<HTMLDivElement>('#presets')!;
 const themeBtn = app.querySelector<HTMLButtonElement>('#theme')!;
+const copyBtn = app.querySelector<HTMLButtonElement>('#copy')!;
+const copyLabel = app.querySelector<HTMLSpanElement>('#copy-label')!;
+
+// 入力の余分な空白をならし、プリセット一致判定や共有に使う正規形を得る
+function normalize(expression: string): string {
+  return expression.trim().replace(/\s+/g, ' ');
+}
 
 // ── テーマ切替(自動 → ライト → ダークの循環)──
 let theme = loadTheme();
@@ -108,6 +127,7 @@ themeBtn.addEventListener('click', () => {
 renderTheme();
 
 // ── プリセット ──
+const presetChips: Array<{ el: HTMLButtonElement; expression: string }> = [];
 for (const preset of PRESETS) {
   const chip = document.createElement('button');
   chip.type = 'button';
@@ -120,7 +140,29 @@ for (const preset of PRESETS) {
     exprInput.focus();
   });
   presetsEl.appendChild(chip);
+  presetChips.push({ el: chip, expression: preset.expression });
 }
+
+// ── コピー(クリップボードへ式を写す)──
+let copyResetTimer: number | undefined;
+copyBtn.addEventListener('click', async () => {
+  try {
+    await navigator.clipboard.writeText(exprInput.value);
+    copyLabel.textContent = 'コピーしました';
+  } catch {
+    copyLabel.textContent = 'コピーできません';
+  }
+  copyBtn.classList.add('done');
+  window.clearTimeout(copyResetTimer);
+  copyResetTimer = window.setTimeout(() => {
+    copyLabel.textContent = 'コピー';
+    copyBtn.classList.remove('done');
+  }, 1600);
+});
+
+// ── 共有リンクから式を復元 ──
+const shared = readSharedExpression(location.search);
+if (shared) exprInput.value = shared;
 
 function summarizeField(spec: CronSpec, key: keyof Omit<CronSpec, 'raw'>): string {
   const field = spec[key];
@@ -141,8 +183,20 @@ function setUpdated(el: HTMLElement, changed: boolean): void {
   }
 }
 
+// 現在の式に一致するプリセットを目立たせる
+function updateActivePresets(normalized: string): void {
+  for (const { el, expression } of presetChips) {
+    const active = expression === normalized;
+    el.classList.toggle('active', active);
+    el.setAttribute('aria-pressed', String(active));
+  }
+}
+
 function render(): void {
   const expression = exprInput.value;
+  const normalized = normalize(expression);
+  history.replaceState(null, '', normalized ? sharedExpressionQuery(normalized) : location.pathname);
+  updateActivePresets(normalized);
   let spec: CronSpec;
   try {
     spec = parseCron(expression);
