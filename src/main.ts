@@ -4,6 +4,7 @@ import { describe } from './describe';
 import { nextRuns } from './next';
 import { formatDateTime, formatRelative } from './format';
 import { PRESETS } from './presets';
+import { fingerprint } from './fingerprint';
 import { applyTheme, loadTheme, nextTheme, THEME_LABEL, type ThemeMode } from './theme';
 import { readSharedExpression, sharedExpressionQuery } from './share';
 
@@ -79,6 +80,11 @@ app.innerHTML = `
       <p id="description" class="description"></p>
     </section>
 
+    <section id="pattern" class="pattern" aria-labelledby="pattern-title">
+      <h2 id="pattern-title" class="panel-title">実行パターン</h2>
+      <div id="fingerprint" class="fingerprint"></div>
+    </section>
+
     <div class="panels">
       <section class="panel" aria-labelledby="fields-title">
         <h2 id="fields-title" class="panel-title">フィールド</h2>
@@ -103,6 +109,8 @@ const readingEl = app.querySelector<HTMLElement>('#reading')!;
 const descEl = app.querySelector<HTMLParagraphElement>('#description')!;
 const fieldsBody = app.querySelector<HTMLTableSectionElement>('#fields')!;
 const runsEl = app.querySelector<HTMLOListElement>('#runs')!;
+const patternEl = app.querySelector<HTMLElement>('#pattern')!;
+const fingerprintEl = app.querySelector<HTMLDivElement>('#fingerprint')!;
 const presetsEl = app.querySelector<HTMLDivElement>('#presets')!;
 const themeBtn = app.querySelector<HTMLButtonElement>('#theme')!;
 const copyBtn = app.querySelector<HTMLButtonElement>('#copy')!;
@@ -180,6 +188,7 @@ function summarizeField(spec: CronSpec, key: keyof Omit<CronSpec, 'raw'>): strin
 // 構築前に必ずクラスを外し(挿入時の自動再生を防ぐ)、変化時のみreflowを挟んで付け直す。
 let lastReading = '';
 let lastRunsSig = '';
+let lastFingerprintSig = '';
 function setUpdated(el: HTMLElement, changed: boolean): void {
   el.classList.remove('is-updated');
   if (changed) {
@@ -197,10 +206,36 @@ function updateActivePresets(normalized: string): void {
   }
 }
 
+// スケジュールの指紋(曜日・時・月の活動セル)を塗り分けて描く。
+function renderFingerprint(spec: CronSpec): void {
+  fingerprintEl.replaceChildren();
+  for (const trackData of fingerprint(spec)) {
+    const track = document.createElement('div');
+    track.className = `track track-${trackData.key}`;
+    const label = document.createElement('span');
+    label.className = 'track-label';
+    label.textContent = trackData.label;
+    const cells = document.createElement('div');
+    cells.className = 'cells';
+    for (const cell of trackData.cells) {
+      const dot = document.createElement('span');
+      dot.className = cell.active ? 'cell active' : 'cell';
+      dot.textContent = cell.label;
+      cells.appendChild(dot);
+    }
+    track.append(label, cells);
+    fingerprintEl.appendChild(track);
+  }
+}
+
 function render(): void {
   const expression = exprInput.value;
   const normalized = normalize(expression);
-  history.replaceState(null, '', normalized ? sharedExpressionQuery(normalized) : location.pathname);
+  history.replaceState(
+    null,
+    '',
+    normalized ? sharedExpressionQuery(normalized) : location.pathname,
+  );
   updateActivePresets(normalized);
   let spec: CronSpec;
   try {
@@ -216,11 +251,21 @@ function render(): void {
     runsEl.classList.remove('is-updated');
     fieldsBody.innerHTML = '';
     runsEl.innerHTML = '';
+    patternEl.hidden = true;
+    fingerprintEl.replaceChildren();
     // 直すと再びアニメーションするよう、表示中の内容を空として記録する
     lastReading = '';
     lastRunsSig = '';
+    lastFingerprintSig = '';
     return;
   }
+
+  patternEl.hidden = false;
+  renderFingerprint(spec);
+  // 指紋は月・曜日・時で決まる。変わったときだけセルを立ち上げる。
+  const fpSig = `${spec.month.raw}|${spec.dow.raw}|${spec.hour.raw}`;
+  setUpdated(fingerprintEl, fpSig !== lastFingerprintSig);
+  lastFingerprintSig = fpSig;
 
   errorEl.hidden = true;
   readingEl.classList.remove('muted');

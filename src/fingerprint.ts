@@ -10,7 +10,7 @@ export interface Cell {
 }
 
 export interface Track {
-  key: 'dow' | 'hour' | 'month';
+  key: 'dow' | 'hour' | 'month' | 'dom';
   label: string;
   cells: Cell[];
 }
@@ -31,6 +31,16 @@ export function fingerprint(spec: CronSpec): Track[] {
       key: 'month',
       label: '月',
       cells: range(12, 1).map((m) => ({ label: String(m), active: months.has(m) })),
+    });
+  }
+
+  // 日(月内)は指定があるときだけ。* のとき毎日=全セルではノイズなので出さない。
+  if (!spec.dom.isStar) {
+    const days = new Set(spec.dom.values);
+    tracks.push({
+      key: 'dom',
+      label: '日',
+      cells: range(31, 1).map((d) => ({ label: String(d), active: days.has(d) })),
     });
   }
 
