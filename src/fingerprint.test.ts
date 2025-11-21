@@ -2,11 +2,13 @@ import { describe, expect, it } from 'vitest';
 import { parseCron } from './cron';
 import { fingerprint } from './fingerprint';
 
-function track(expr: string, key: 'dow' | 'hour' | 'month') {
+type TrackKey = 'dow' | 'hour' | 'month' | 'dom';
+
+function track(expr: string, key: TrackKey) {
   return fingerprint(parseCron(expr)).find((t) => t.key === key);
 }
 
-function activeLabels(expr: string, key: 'dow' | 'hour' | 'month'): string[] {
+function activeLabels(expr: string, key: TrackKey): string[] {
   return (track(expr, key)?.cells ?? []).filter((c) => c.active).map((c) => c.label);
 }
 
@@ -31,9 +33,20 @@ describe('fingerprint', () => {
     expect(track('0 9 * * *', 'month')).toBeUndefined();
   });
 
+  it('日の指定があるときだけ日トラックを出し、31セルで塗る', () => {
+    expect(track('0 9 * * *', 'dom')).toBeUndefined();
+    expect(track('0 9 1,15 * *', 'dom')?.cells).toHaveLength(31);
+    expect(activeLabels('0 9 1,15 * *', 'dom')).toEqual(['1', '15']);
+  });
+
   it('トラックは曜日と時を必ず含む', () => {
     const keys = fingerprint(parseCron('0 9 * * *')).map((t) => t.key);
     expect(keys).toEqual(['dow', 'hour']);
+  });
+
+  it('月・日の両方を指定すると月→日→曜日→時の順に並ぶ', () => {
+    const keys = fingerprint(parseCron('0 9 1,15 6 *')).map((t) => t.key);
+    expect(keys).toEqual(['month', 'dom', 'dow', 'hour']);
   });
 
   it('ステップ指定の時を正しく塗る', () => {
