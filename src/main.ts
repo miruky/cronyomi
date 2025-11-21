@@ -93,6 +93,7 @@ app.innerHTML = `
       <section class="panel" aria-labelledby="runs-title">
         <h2 id="runs-title" class="panel-title">次に実行される時刻</h2>
         <ol class="runs" id="runs"></ol>
+        <button id="more-runs" class="more-btn" type="button" hidden></button>
       </section>
     </div>
   </main>
@@ -111,6 +112,7 @@ const fieldsBody = app.querySelector<HTMLTableSectionElement>('#fields')!;
 const runsEl = app.querySelector<HTMLOListElement>('#runs')!;
 const patternEl = app.querySelector<HTMLElement>('#pattern')!;
 const fingerprintEl = app.querySelector<HTMLDivElement>('#fingerprint')!;
+const moreRunsBtn = app.querySelector<HTMLButtonElement>('#more-runs')!;
 const presetsEl = app.querySelector<HTMLDivElement>('#presets')!;
 const themeBtn = app.querySelector<HTMLButtonElement>('#theme')!;
 const copyBtn = app.querySelector<HTMLButtonElement>('#copy')!;
@@ -186,6 +188,9 @@ function summarizeField(spec: CronSpec, key: keyof Omit<CronSpec, 'raw'>): strin
 
 // 結果が実際に変わったときだけアニメーションを再生する。
 // 構築前に必ずクラスを外し(挿入時の自動再生を防ぐ)、変化時のみreflowを挟んで付け直す。
+const RUNS_COLLAPSED = 5;
+const RUNS_EXPANDED = 20;
+let runsExpanded = false;
 let lastReading = '';
 let lastRunsSig = '';
 let lastFingerprintSig = '';
@@ -206,7 +211,8 @@ function updateActivePresets(normalized: string): void {
   }
 }
 
-// スケジュールの指紋(曜日・時・月の活動セル)を塗り分けて描く。
+// スケジュールの指紋(曜日・時・月・日の活動セル)を塗り分けて描く。
+// セル群は装飾とし、読み上げには活動値を要約したaria-labelを1つだけ渡す。
 function renderFingerprint(spec: CronSpec): void {
   fingerprintEl.replaceChildren();
   for (const trackData of fingerprint(spec)) {
@@ -215,12 +221,21 @@ function renderFingerprint(spec: CronSpec): void {
     const label = document.createElement('span');
     label.className = 'track-label';
     label.textContent = trackData.label;
+    label.setAttribute('aria-hidden', 'true');
     const cells = document.createElement('div');
     cells.className = 'cells';
+    cells.setAttribute('role', 'img');
+    const activeCells = trackData.cells.filter((c) => c.active);
+    const summary =
+      activeCells.length === trackData.cells.length
+        ? 'すべて'
+        : activeCells.map((c) => c.label).join('、');
+    cells.setAttribute('aria-label', `${trackData.label}: ${summary}`);
     for (const cell of trackData.cells) {
       const dot = document.createElement('span');
       dot.className = cell.active ? 'cell active' : 'cell';
       dot.textContent = cell.label;
+      dot.setAttribute('aria-hidden', 'true');
       cells.appendChild(dot);
     }
     track.append(label, cells);
@@ -253,6 +268,7 @@ function render(): void {
     runsEl.innerHTML = '';
     patternEl.hidden = true;
     fingerprintEl.replaceChildren();
+    moreRunsBtn.hidden = true;
     // 直すと再びアニメーションするよう、表示中の内容を空として記録する
     lastReading = '';
     lastRunsSig = '';
@@ -291,7 +307,8 @@ function render(): void {
   }
 
   const now = new Date();
-  const runs = nextRuns(spec, now, 5);
+  const count = runsExpanded ? RUNS_EXPANDED : RUNS_COLLAPSED;
+  const runs = nextRuns(spec, now, count);
   // 構築前にクラスを外し、li挿入時に毎回アニメーションしてしまうのを防ぐ
   runsEl.classList.remove('is-updated');
   runsEl.innerHTML = '';
@@ -317,7 +334,25 @@ function render(): void {
   const runsSig = runs.length ? runs.map((r) => r.getTime()).join(',') : 'none';
   setUpdated(runsEl, runsSig !== lastRunsSig);
   lastRunsSig = runsSig;
+
+  // 5件が埋まっているときだけ「さらに表示」を出す。展開中は折りたたみに切り替える。
+  if (runs.length === 0) {
+    moreRunsBtn.hidden = true;
+  } else if (runsExpanded) {
+    moreRunsBtn.hidden = false;
+    moreRunsBtn.textContent = '表示を減らす';
+  } else if (runs.length >= RUNS_COLLAPSED) {
+    moreRunsBtn.hidden = false;
+    moreRunsBtn.textContent = 'さらに表示';
+  } else {
+    moreRunsBtn.hidden = true;
+  }
 }
+
+moreRunsBtn.addEventListener('click', () => {
+  runsExpanded = !runsExpanded;
+  render();
+});
 
 exprInput.addEventListener('input', render);
 render();
