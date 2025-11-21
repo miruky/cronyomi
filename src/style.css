@@ -406,11 +406,16 @@ body {
     border-color 0.18s var(--ease);
 }
 
-/* 時の帯は24個と多いので一回り小さくして横一列に収める */
-.track-hour .cell {
+/* 時(24個)・日(31個)は数が多いので一回り小さくして横に収める */
+.track-hour .cell,
+.track-dom .cell {
   min-width: 22px;
   height: 24px;
   font-size: 11px;
+}
+
+.track-dom .cell {
+  min-width: 20px;
 }
 
 .cell.active {
@@ -564,6 +569,29 @@ body {
   color: var(--ink-soft);
   font-size: 14px;
   padding: 12px 0;
+}
+
+.more-btn {
+  margin-top: 16px;
+  font: inherit;
+  font-size: 12.5px;
+  color: var(--ink-soft);
+  background: transparent;
+  border: none;
+  padding: 4px 0;
+  cursor: pointer;
+  background-image: linear-gradient(var(--accent), var(--accent));
+  background-size: 0% 1px;
+  background-position: 0 100%;
+  background-repeat: no-repeat;
+  transition:
+    color 0.18s var(--ease),
+    background-size 0.3s var(--ease);
+}
+
+.more-btn:hover {
+  color: var(--accent-strong);
+  background-size: 100% 1px;
 }
 
 /* ── フッター ── */
